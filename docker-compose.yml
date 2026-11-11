@@ -1,0 +1,197 @@
+version: '3.8'
+
+networks:
+  eco-net:
+    driver: bridge
+
+volumes:
+  school_mysql_data:
+  challenge_pg_data:
+  quiz_mongo_data:
+  scoring_pg_data:
+  rabbitmq_data:
+
+services:
+  # ============================================================================
+  # INFRASTRUCTURE SERVERS
+  # ============================================================================
+
+  # Message Broker: RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: eco-rabbitmq
+    ports:
+      - "5672:5672"     # AMQP protocol
+      - "15672:15672"   # Management Web UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - eco-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Identity & Access Management: Keycloak
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: eco-keycloak
+    command: start-dev
+    ports:
+      - "8180:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    networks:
+      - eco-net
+
+  # ============================================================================
+  # DATABASES PER SERVICE (Database-per-Service Pattern)
+  # ============================================================================
+
+  # DB MS1 : MySQL for School & Class Service
+  school-db:
+    image: mysql:8.0
+    container_name: eco-school-db
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_DATABASE: school_db
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - school_mysql_data:/var/lib/mysql
+    networks:
+      - eco-net
+
+  # DB MS2 : PostgreSQL for Challenge Service
+  challenge-db:
+    image: postgres:16
+    container_name: eco-challenge-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: challenge_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - challenge_pg_data:/var/lib/postgresql/data
+    networks:
+      - eco-net
+
+  # DB MS3 : MongoDB for Quiz & Educational Content
+  quiz-db:
+    image: mongo:7.0
+    container_name: eco-quiz-db
+    ports:
+      - "27017:27017"
+    volumes:
+      - quiz_mongo_data:/data/db
+    networks:
+      - eco-net
+
+  # DB MS4 : PostgreSQL for Scoring & Leaderboards
+  scoring-db:
+    image: postgres:16
+    container_name: eco-scoring-db
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: scoring_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - scoring_pg_data:/var/lib/postgresql/data
+    networks:
+      - eco-net
+
+  # ============================================================================
+  # BUSINESS MICROSERVICES SKELETONS
+  # ============================================================================
+
+  # MS1: School-Class Service
+  school-class-service:
+    build:
+      context: ./Backend/MicroServices/school-class
+      dockerfile: Dockerfile
+    container_name: eco-school-class
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://school-db:3306/school_db?createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+    depends_on:
+      - school-db
+    networks:
+      - eco-net
+
+  # MS2: Challenge Service
+  challenge-service:
+    build:
+      context: ./Backend/MicroServices/challenge
+      dockerfile: Dockerfile
+    container_name: eco-challenge
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://challenge-db:5432/challenge_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: password
+    depends_on:
+      - challenge-db
+      - rabbitmq
+    networks:
+      - eco-net
+
+  # MS3: Quiz Service
+  quiz-service:
+    build:
+      context: ./Backend/MicroServices/quiz
+      dockerfile: Dockerfile
+    container_name: eco-quiz
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://quiz-db:27017/quiz_db
+    depends_on:
+      - quiz-db
+      - rabbitmq
+    networks:
+      - eco-net
+
+  # MS4: Scoring Service (Node.js)
+  scoring-service:
+    build:
+      context: ./Backend/MicroServices/scoring
+      dockerfile: Dockerfile
+    container_name: eco-scoring
+    ports:
+      - "8084:8084"
+    environment:
+      PORT: 8084
+      DATABASE_URL: postgres://postgres:password@scoring-db:5432/scoring_db
+    depends_on:
+      - scoring-db
+      - rabbitmq
+    networks:
+      - eco-net
+
+  # MS5: Notification Service (Python FastAPI)
+  notification-service:
+    build:
+      context: ./Backend/MicroServices/notification
+      dockerfile: Dockerfile
+    container_name: eco-notification
+    ports:
+      - "8085:8085"
+    environment:
+      PORT: 8085
+      RABBITMQ_HOST: rabbitmq
+    depends_on:
+      - rabbitmq
+    networks:
+      - eco-net

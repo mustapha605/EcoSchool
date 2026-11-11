@@ -1,0 +1,20 @@
+{
+  "name": "scoring",
+  "version": "1.0.0",
+  "description": "Scoring microservice (Node.js / Express) - Green points, Badges, and Leaderboards",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": ["microservice", "express", "swagger", "scoring", "leaderboard"],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^5.1.0",
+    "swagger-ui-express": "^5.0.1"
+  }
+}
