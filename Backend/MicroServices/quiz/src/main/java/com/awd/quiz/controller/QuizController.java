@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,9 +18,11 @@ import java.util.Map;
 public class QuizController {
 
     private final QuizRepository quizRepository;
+    private final RabbitTemplate rabbitTemplate;
 
-    public QuizController(QuizRepository quizRepository) {
+    public QuizController(QuizRepository quizRepository, RabbitTemplate rabbitTemplate) {
         this.quizRepository = quizRepository;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @GetMapping("/quizzes/hello")
@@ -37,7 +40,9 @@ public class QuizController {
     @PostMapping("/quizzes")
     @Operation(summary = "Create a quiz")
     public ResponseEntity<Quiz> createQuiz(@RequestBody Quiz quiz) {
-        return new ResponseEntity<>(quizRepository.save(quiz), HttpStatus.CREATED);
+        Quiz saved = quizRepository.save(quiz);
+        rabbitTemplate.convertAndSend("eco.events", "quiz.created", Map.of("quizId", saved.getId()));
+        return new ResponseEntity<>(saved, HttpStatus.CREATED);
     }
 
     @GetMapping("/quizzes/{id}")

@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,9 +19,11 @@ import java.util.Map;
 public class ChallengeController {
 
     private final ChallengeRepository challengeRepository;
+    private final RabbitTemplate rabbitTemplate;
 
-    public ChallengeController(ChallengeRepository challengeRepository) {
+    public ChallengeController(ChallengeRepository challengeRepository, RabbitTemplate rabbitTemplate) {
         this.challengeRepository = challengeRepository;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @GetMapping("/challenges/hello")
@@ -38,7 +41,9 @@ public class ChallengeController {
     @PostMapping("/challenges")
     @Operation(summary = "Create an eco-challenge")
     public ResponseEntity<Challenge> createChallenge(@RequestBody Challenge challenge) {
-        return new ResponseEntity<>(challengeRepository.save(challenge), HttpStatus.CREATED);
+        Challenge saved = challengeRepository.save(challenge);
+        rabbitTemplate.convertAndSend("eco.events", "challenge.created", Map.of("challengeId", saved.getId()));
+        return new ResponseEntity<>(saved, HttpStatus.CREATED);
     }
 
     @GetMapping("/challenges/{id}")

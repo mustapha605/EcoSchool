@@ -1,85 +1,60 @@
-# Eco-Awareness for Schools — Microservices Architecture
+# Eco-Awareness for Schools — Microservices
 
-**Distributed Web Architecture (AWD)** · ESPRIT School of Engineering · 4th-year Computer Engineering · 2026–2027
+Plateforme éducative qui gamifie l’éco-responsabilité en milieu scolaire et mesure l’impact réel des classes.
 
----
+## Architecture
 
-## 1. Project Overview
+Chaque microservice a sa responsabilité et sa base de données. Les échanges asynchrones passent par l’exchange RabbitMQ durable `eco.events`.
 
-**Eco-Awareness for Schools** is an educational microservices platform designed for primary and secondary schools to gamify eco-responsibility and track energy/waste reduction.
-Through classroom challenges, interactive eco-quizzes, and green points competitions, students and classes unlock eco-badges and compete on school leaderboards.
+| Service | Technologie | Port | Rôle |
+|---|---:|---:|---|
+| API Gateway | Spring Boot | 8080 | Point d’entrée unique |
+| school-class-service | Spring Boot | 8081 | Écoles, classes et élèves |
+| challenge-service | Spring Boot | 8082 | Défis et soumissions |
+| quiz-service | Spring Boot | 8083 | Quiz et contenu éducatif |
+| scoring-service | Spring Boot | 8084 | Scores et classements, consommateur RabbitMQ |
+| notification-service | Spring Boot | 8085 | Notifications, consommateur RabbitMQ |
+| user-service | Spring Boot + Keycloak | 8086 | Profil de l’utilisateur connecté et validation JWT |
+| tracking-service | Node.js | 8087 | Actions mesurables : déchets, énergie, eau |
+| Keycloak | Keycloak 24 | 8180 | Authentification, rôles PUPIL / TEACHER / SCHOOL_ADMIN |
+| RabbitMQ management | RabbitMQ | 15672 | Supervision du broker |
 
-### Target Actors & Roles
-- **Pupils**: Participate in eco-challenges, submit proofs (waste reduction, energy savings), take educational quizzes, consult class scores and unlocked badges.
-- **Teachers**: Register and manage classrooms, assign challenges, validate student submissions, monitor progress.
-- **School Administrators**: Track school-wide ecological performance, view global leaderboards.
+## Liens locaux
 
----
+- [Gateway](http://localhost:8080)
+- [School & Class Swagger](http://localhost:8081/swagger-ui.html)
+- [Challenge Swagger](http://localhost:8082/swagger-ui.html)
+- [Quiz Swagger](http://localhost:8083/swagger-ui.html)
+- [Scoring Swagger](http://localhost:8084/swagger-ui.html)
+- [Notification Swagger](http://localhost:8085/swagger-ui.html)
+- [User Swagger](http://localhost:8086/swagger-ui.html)
+- [Tracking health](http://localhost:8087/api/tracking/health)
+- [Keycloak console](http://localhost:8180) — `admin` / `admin`
+- [RabbitMQ console](http://localhost:15672) — `guest` / `guest`
 
-## 2. Microservices Architecture & Bounded Contexts
+## Authentication
 
-Following Domain-Driven Design (DDD) principles and the **Database-per-Service** pattern, each microservice possesses an isolated bounded context and its own database:
+`user-service` is a Spring Boot OAuth2 Resource Server. Keycloak imports the `eco-school` realm automatically through Docker Compose. Obtain a Keycloak access token and call `GET /api/users/me` with `Authorization: Bearer <token>`.
 
-| Microservice | Bounded Context / Domain | Technology | Port | Database |
-|---|---|---|---|---|
-| **`school-class-service`** | Schools, Classrooms, Pupils & Teachers | Spring Boot 3.2.5 (Java 17) | `8081` | MySQL / H2 (`school_db`) |
-| **`challenge-service`** | Challenges catalog, Class enrollments & Proof submissions | Spring Boot 3.2.5 (Java 17) | `8082` | PostgreSQL / H2 (`challenge_db`) |
-| **`quiz-service`** | Eco-quizzes, Questions, Quiz attempts & Eco-tips | Spring Boot 3.2.5 (Java 17) | `8083` | MongoDB / H2 (`quiz_db`) |
-| **`scoring-service`** | Eco-points aggregation, Badges, Class rankings | Node.js (Express) | `8084` | PostgreSQL / Redis (`scoring_db`) |
-| **`notification-service`** | Instant alerts, Badge unlock notifications, Weekly digests | Python (FastAPI) — *Advanced Tech* | `8085` | SQLite / Stateless (`notif_db`) |
+## Event flow
 
----
+`tracking-service` stores each action then publishes `tracking.action.recorded` in `eco.events`. Scoring and notification each own a durable queue (`scoring.events`, `notification.events`), so an environmental action updates the objective score and remains auditable. The other Spring Boot services are connected to RabbitMQ and can publish their domain events to the same exchange.
 
-## 3. Communication Patterns
+Example action:
 
-### Synchronous Communication (OpenFeign / REST)
-Used when a service requires immediate validation from another bounded context:
-- `challenge-service` $\rightarrow$ `school-class-service` (`GET /api/classes/{id}`): Verifies classroom existence prior to registering challenge participation.
-- `quiz-service` $\rightarrow$ `school-class-service` (`GET /api/pupils/{id}`): Validates student enrollment before saving quiz results.
+```http
+POST http://localhost:8087/api/tracking/actions
+Content-Type: application/json
 
-### Asynchronous Communication (RabbitMQ Event Broker)
-Decoupled and resilient event flows via Topic Exchanges:
-- **`ChallengeCompletedEvent`**: Published by `challenge-service` upon teacher validation $\rightarrow$ Consumed by `scoring-service` (+100 green points) and `notification-service`.
-- **`QuizPassedEvent`**: Published by `quiz-service` $\rightarrow$ Consumed by `scoring-service` (+20 points).
-- **`BadgeUnlockedEvent`**: Published by `scoring-service` $\rightarrow$ Consumed by `notification-service` to broadcast milestone achievements.
-
----
-
-## 4. How to Launch the Microservices
-
-Each microservice can be launched independently in its own terminal:
-
-```bash
-# 1. School & Class Service (Port 8081)
-cd Backend/MicroServices/school-class
-mvn spring-boot:run
-
-# 2. Challenge Service (Port 8082)
-cd Backend/MicroServices/challenge
-mvn spring-boot:run
-
-# 3. Quiz Service (Port 8083)
-cd Backend/MicroServices/quiz
-mvn spring-boot:run
-
-# 4. Scoring Service (Port 8084)
-cd Backend/MicroServices/scoring
-npm install && npm start
-
-# 5. Notification Service (Port 8085)
-cd Backend/MicroServices/notification
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python -m uvicorn app.main:app --reload --port 8085
+{ "classId": "6A", "metric": "WASTE_KG", "value": 12.5 }
 ```
 
----
+Available metrics: `WASTE_KG`, `ENERGY_KWH`, `WATER_LITERS`. Consult `GET /api/tracking/classes/{classId}/summary` for totals.
 
-## 5. Documentation & Diagrams
+## Start with Docker
 
-All architectural artifacts required for Validation 1 are located in `Documentation/`:
-- `Documentation/Diagrammes/1-architecture-microservices.png`: Full technical architecture diagram (Gateway, Eureka, Keycloak, 5 Microservices, Databases, RabbitMQ, Docker).
-- `Documentation/Diagrammes/2-diagramme-classe.png`: Conceptual class diagram colored by microservice ownership.
-- `Documentation/Diagrammes/3-diagramme-classe-domaine.png`: Domain class diagram showing bounded contexts and ID-only cross-service references.
-- `Documentation/Diagrammes/eco-awareness.drawio`: Editable Draw.io multi-page diagram source.
+```bash
+docker compose up --build
+```
+
+To run individual services locally, use `mvn spring-boot:run` in each Spring Boot service folder; use `npm install && npm start` in `Backend/MicroServices/tracking`.

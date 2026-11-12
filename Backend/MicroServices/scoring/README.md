@@ -1,14 +1,6 @@
-# scoring microservice
+# Scoring service
 
-Node.js / Express microservice managing **Green Points**, **Badges**, and **Leaderboards**.
+Service Spring Boot (port `8084`). Il consomme la file RabbitMQ `scoring.events` liée à `eco.events` et agrège les événements comportant `classId` et `points`.
 
-## Run
-```bash
-npm install
-npm start          # or: npm run dev
-```
-- API: http://localhost:8084/api/scoring/hello
-- Swagger UI: http://localhost:8084/swagger-ui
-- OpenAPI JSON: http://localhost:8084/v3/api-docs
-
-Port: `8084`
+- `GET /api/scoring/leaderboard`
+- `GET /api/scoring/{classId}`

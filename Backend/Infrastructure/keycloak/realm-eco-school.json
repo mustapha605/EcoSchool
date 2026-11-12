@@ -1,0 +1,9 @@
+{
+  "realm": "eco-school",
+  "enabled": true,
+  "displayName": "Eco School",
+  "roles": { "realm": [ { "name": "PUPIL" }, { "name": "TEACHER" }, { "name": "SCHOOL_ADMIN" } ] },
+  "clients": [
+    { "clientId": "eco-school-web", "name": "Eco School Web", "enabled": true, "publicClient": true, "standardFlowEnabled": true, "redirectUris": ["http://localhost:4200/*", "http://localhost:3000/*"], "webOrigins": ["*"] }
+  ]
+}

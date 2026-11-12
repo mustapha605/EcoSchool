@@ -9,6 +9,7 @@ volumes:
   challenge_pg_data:
   quiz_mongo_data:
   scoring_pg_data:
+  tracking_mongo_data:
   rabbitmq_data:
 
 services:
@@ -40,12 +41,14 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:24.0
     container_name: eco-keycloak
-    command: start-dev
     ports:
       - "8180:8080"
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
+    volumes:
+      - ./Backend/Infrastructure/keycloak/realm-eco-school.json:/opt/keycloak/data/import/realm-eco-school.json:ro
+    command: start-dev --import-realm
     networks:
       - eco-net
 
@@ -108,6 +111,17 @@ services:
     networks:
       - eco-net
 
+  # DB MS6 : MongoDB for measurable environmental impact
+  tracking-db:
+    image: mongo:7.0
+    container_name: eco-tracking-db
+    ports:
+      - "27018:27017"
+    volumes:
+      - tracking_mongo_data:/data/db
+    networks:
+      - eco-net
+
   # ============================================================================
   # BUSINESS MICROSERVICES SKELETONS
   # ============================================================================
@@ -124,8 +138,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://school-db:3306/school_db?createDatabaseIfNotExist=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
+      RABBITMQ_HOST: rabbitmq
     depends_on:
       - school-db
+      - rabbitmq
     networks:
       - eco-net
 
@@ -141,6 +157,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://challenge-db:5432/challenge_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: password
+      RABBITMQ_HOST: rabbitmq
     depends_on:
       - challenge-db
       - rabbitmq
@@ -157,13 +174,14 @@ services:
       - "8083:8083"
     environment:
       SPRING_DATA_MONGODB_URI: mongodb://quiz-db:27017/quiz_db
+      RABBITMQ_HOST: rabbitmq
     depends_on:
       - quiz-db
       - rabbitmq
     networks:
       - eco-net
 
-  # MS4: Scoring Service (Node.js)
+  # MS4: Scoring Service (Spring Boot)
   scoring-service:
     build:
       context: ./Backend/MicroServices/scoring
@@ -172,15 +190,14 @@ services:
     ports:
       - "8084:8084"
     environment:
-      PORT: 8084
-      DATABASE_URL: postgres://postgres:password@scoring-db:5432/scoring_db
+      RABBITMQ_HOST: rabbitmq
     depends_on:
       - scoring-db
       - rabbitmq
     networks:
       - eco-net
 
-  # MS5: Notification Service (Python FastAPI)
+  # MS5: Notification Service (Spring Boot)
   notification-service:
     build:
       context: ./Backend/MicroServices/notification
@@ -189,9 +206,43 @@ services:
     ports:
       - "8085:8085"
     environment:
-      PORT: 8085
       RABBITMQ_HOST: rabbitmq
     depends_on:
+      - rabbitmq
+    networks:
+      - eco-net
+
+  # MS6: User Service (Spring Boot resource server backed by Keycloak)
+  user-service:
+    build:
+      context: ./Backend/MicroServices/user
+      dockerfile: Dockerfile
+    container_name: eco-user
+    ports:
+      - "8086:8086"
+    environment:
+      KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/eco-school
+      RABBITMQ_HOST: rabbitmq
+    depends_on:
+      - keycloak
+      - rabbitmq
+    networks:
+      - eco-net
+
+  # MS7: Tracking / Eco-Data Service (Node.js)
+  tracking-service:
+    build:
+      context: ./Backend/MicroServices/tracking
+      dockerfile: Dockerfile
+    container_name: eco-tracking
+    ports:
+      - "8087:8087"
+    environment:
+      PORT: 8087
+      MONGO_URI: mongodb://tracking-db:27017/tracking_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - tracking-db
       - rabbitmq
     networks:
       - eco-net
