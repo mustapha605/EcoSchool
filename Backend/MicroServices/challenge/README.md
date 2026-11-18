@@ -6,7 +6,7 @@ Spring Boot 3.2.5 / Java 17 service managing **Eco-challenges**, **Proof Submiss
 
 This microservice registers itself as `challenge-service` with a separately running Eureka server.
 The default server URL is `http://localhost:8761/eureka/`; set
-`EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE` to override it (for example, when the service runs in Docker).
+`EUREKA_CLIENT_SERVICEURL_DEFAULTZONE` to override it (for example, when the service runs in Docker).
 Eureka is enabled only in this microservice; no other services or application-wide configuration are changed.
 
 ## Run
