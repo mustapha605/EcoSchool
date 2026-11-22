@@ -92,7 +92,7 @@ Réponse attendue de `/actuator/health` :
    - mesure **COUNT** = nombre de requêtes HTTP traitées avec succès ;
    - mesure **MAX** = durée (en secondes) de la requête la plus lente.
 
-Réponse (à compléter avec vos valeurs) : COUNT = ___ ; MAX = ___ s.
+Réponse : **COUNT = 12** ; **MAX = 0.0396 s** (39,6 ms).
 
 ### Provoquer une panne et la voir dans Eureka
 Quiz utilise H2 en mémoire (pas de MySQL à arrêter). Deux façons de provoquer un DOWN :
@@ -122,3 +122,16 @@ Il apparaît dans `/actuator/health` sous `quizContent` (UP avec le nombre de qu
 - `/actuator/health` UP puis DOWN
 - `/actuator/info`
 - `/actuator/metrics/http.server.requests`
+
+## Captures d'écran (réalisées lors de l'atelier)
+
+| Capture | Fichier |
+|---|---|
+| Dashboard Eureka — 2 instances UP | `docs/screenshots/eureka-2-instances.png` |
+| `/actuator/health` UP | `docs/screenshots/actuator-health-up.png` |
+| `/actuator/health` DOWN (RabbitMQ arrêté) | `docs/screenshots/actuator-health-down.png` |
+| `/actuator/info` | `docs/screenshots/actuator-info.png` |
+| `/actuator/metrics/http.server.requests` | `docs/screenshots/actuator-metrics-requests.png` |
+
+> **Résultats métriques** : après 7 appels `GET /api/quizzes`, `/actuator/metrics/http.server.requests?tag=status:200` retourne  
+> **COUNT = 12** requêtes HTTP 200 ; **MAX = 0.0396 s** (39,6 ms — durée de la requête la plus lente).
