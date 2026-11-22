@@ -13,17 +13,41 @@
     <artifactId>quiz</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>quiz</name>
-    <description>Quiz & Content Microservice - Eco-Awareness for Schools - Eco-Awareness for Schools</description>
+    <description>Quiz &amp; Content Microservice - Eco-Awareness for Schools - Eco-Awareness for Schools</description>
 
     <properties>
         <java.version>17</java.version>
         <springdoc.version>2.5.0</springdoc.version>
+        <!-- Spring Cloud 2023.0.x est compatible avec Spring Boot 3.2.x (meme version que challenge) -->
+        <spring-cloud.version>2023.0.4</spring-cloud.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- Atelier Eureka, partie 2 : le microservice devient client Eureka -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+        <!-- Atelier Observabilite : endpoints /actuator/* -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
