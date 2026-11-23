@@ -58,3 +58,7 @@ docker compose up --build
 ```
 
 To run individual services locally, use `mvn spring-boot:run` in each Spring Boot service folder; use `npm install && npm start` in `Backend/MicroServices/tracking`.
+
+## Eureka and service health
+
+The Eureka server runs at `http://localhost:8761`. Spring Boot services register there and expose Actuator health, info and metrics endpoints. The Node.js tracking service registers as well and exposes `/health` and `/info`. Docker Compose configures clients to use the internal `eureka-server` hostname; local runs use `localhost` by default.

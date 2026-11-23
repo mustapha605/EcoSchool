@@ -1,5 +1,3 @@
-version: '3.8'
-
 networks:
   eco-net:
     driver: bridge
@@ -13,6 +11,44 @@ volumes:
   rabbitmq_data:
 
 services:
+  eureka-server:
+    build:
+      context: ./Backend/Infrastructure/eureka-server
+      dockerfile: Dockerfile
+    container_name: eco-eureka
+    ports:
+      - "8761:8761"
+    networks:
+      - eco-net
+
+  api-gateway:
+    build:
+      context: ./Backend/Infrastructure/api-gateway
+      dockerfile: Dockerfile
+    container_name: eco-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+    networks:
+      - eco-net
+
+  config-server:
+    build:
+      context: ./Backend/Infrastructure/config-server
+      dockerfile: Dockerfile
+    container_name: eco-config-server
+    ports:
+      - "8888:8888"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      - eureka-server
+    networks:
+      - eco-net
+
   # ============================================================================
   # INFRASTRUCTURE SERVERS
   # ============================================================================
@@ -139,9 +175,11 @@ services:
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
       RABBITMQ_HOST: rabbitmq
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       - school-db
       - rabbitmq
+      - eureka-server
     networks:
       - eco-net
 
@@ -158,9 +196,11 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: password
       RABBITMQ_HOST: rabbitmq
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       - challenge-db
       - rabbitmq
+      - eureka-server
     networks:
       - eco-net
 
@@ -175,9 +215,11 @@ services:
     environment:
       SPRING_DATA_MONGODB_URI: mongodb://quiz-db:27017/quiz_db
       RABBITMQ_HOST: rabbitmq
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       - quiz-db
       - rabbitmq
+      - eureka-server
     networks:
       - eco-net
 
@@ -191,9 +233,11 @@ services:
       - "8084:8084"
     environment:
       RABBITMQ_HOST: rabbitmq
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       - scoring-db
       - rabbitmq
+      - eureka-server
     networks:
       - eco-net
 
@@ -207,8 +251,10 @@ services:
       - "8085:8085"
     environment:
       RABBITMQ_HOST: rabbitmq
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       - rabbitmq
+      - eureka-server
     networks:
       - eco-net
 
@@ -223,9 +269,11 @@ services:
     environment:
       KEYCLOAK_ISSUER_URI: http://keycloak:8080/realms/eco-school
       RABBITMQ_HOST: rabbitmq
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
       - keycloak
       - rabbitmq
+      - eureka-server
     networks:
       - eco-net
 
@@ -241,8 +289,12 @@ services:
       PORT: 8087
       MONGO_URI: mongodb://tracking-db:27017/tracking_db
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      EUREKA_HOST: eureka-server
+      EUREKA_PORT: 8761
+      EUREKA_INSTANCE_HOSTNAME: tracking-service
     depends_on:
       - tracking-db
       - rabbitmq
+      - eureka-server
     networks:
       - eco-net

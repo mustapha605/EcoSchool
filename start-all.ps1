@@ -9,6 +9,16 @@ Write-Host "==========================================================" -Foregro
 
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
+# Start the discovery registry before its clients.
+Write-Host "[Infrastructure] Lancement de Eureka (Port 8761)..." -ForegroundColor Yellow
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$projectRoot\Backend\Infrastructure\eureka-server'; Write-Host '--- EUREKA (:8761) ---' -ForegroundColor Cyan; mvn spring-boot:run"
+
+Write-Host "[Infrastructure] Lancement de l'API Gateway (Port 8080)..." -ForegroundColor Yellow
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$projectRoot\Backend\Infrastructure\api-gateway'; Write-Host '--- API GATEWAY (:8080) ---' -ForegroundColor Cyan; mvn spring-boot:run"
+
+Write-Host "[Infrastructure] Lancement du Config Server (Port 8888)..." -ForegroundColor Yellow
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$projectRoot\Backend\Infrastructure\config-server'; Write-Host '--- CONFIG SERVER (:8888) ---' -ForegroundColor Cyan; mvn spring-boot:run"
+
 # 1. School-Class Service (Port 8081)
 Write-Host "[1/5] Lancement de MS1: school-class-service (Port 8081)..." -ForegroundColor Yellow
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$projectRoot\Backend\MicroServices\school-class'; Write-Host '--- MS1 : SCHOOL-CLASS (:8081) ---' -ForegroundColor Cyan; .\mvnw.cmd spring-boot:run"
@@ -37,7 +47,9 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$projectRoot\
 Write-Host "[7/7] Lancement de MS7: tracking-service (Port 8087)..." -ForegroundColor Yellow
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$projectRoot\Backend\MicroServices\tracking'; Write-Host '--- MS7 : TRACKING (:8087) ---' -ForegroundColor Green; npm install; npm start"
 
-Write-Host "Tous les terminaux ont ete lances !" -ForegroundColor Green
+Write-Host "Eureka, les serveurs d'infrastructure et les microservices ont ete lances !" -ForegroundColor Green
+Write-Host "Eureka Dashboard : http://localhost:8761"
+Write-Host "Actuator : http://localhost:<port>/actuator/health, /actuator/info, /actuator/metrics"
 Write-Host "Accedez aux documentations Swagger :" -ForegroundColor Cyan
 Write-Host " - MS1 School-Class : http://localhost:8081/swagger-ui.html"
 Write-Host " - MS2 Challenge    : http://localhost:8082/swagger-ui.html"
